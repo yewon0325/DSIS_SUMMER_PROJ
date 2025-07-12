@@ -24,3 +24,8 @@ def submit_certification():
     })
 
     return jsonify({"message": "인증 저장 완료!"})
+
+@cert_bp.route("/reword", methods=["get"])
+def reword_point():
+    data = request.json
+    
