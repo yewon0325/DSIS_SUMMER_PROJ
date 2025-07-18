@@ -1,25 +1,22 @@
-
 import requests
 
 # API URL
 url = 'http://apis.data.go.kr/B553530/GHG_LIST_040/GHG_LIST_04_04_20220831_VIEW01'
 
-# 요청 파라미터
 params = {
-    'ServiceKey': ''
+    'ServiceKey': 'mLK6c23e65hfr6QCC9LfzukbIT4S5LX5KRqDnC89paX%2Br2PFba3L1532lMJ%2B%2F7ouM7B4GPlbkNcGYCZtt3PoOA%3D%3D',
     'pageNo': '1',
     'numOfRows': '10',
-    'apiType': 'json',  # 'xml'도 가능
-    'q1': '2018',       # 연도
-    'q2': 'A012'        # 에너지 코드 (예시)
+    'apiType': 'JSON',
+    'q1': '2018',        # 연도
+    'q2': 'A012'
 }
 
-# GET 요청
 response = requests.get(url, params=params)
 
 print("Status Code:", response.status_code)
 print("Response Headers:", response.headers)
-print("Response Text:", response.text)  # 응답 내용 출력
+print("Response Text:", response.text)
 
 try:
     data = response.json()
