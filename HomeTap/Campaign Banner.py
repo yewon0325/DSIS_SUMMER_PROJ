@@ -1,5 +1,7 @@
 
 import requests
+from datetime import datetime
+from firebase_admin import firestore
 
 
 # API URL (엔드포인트)
@@ -23,3 +25,6 @@ if response.status_code == 200:
 else:
     print(f"요청 실패: 상태코드 {response.status_code}")
     print(response.text)
+
+
+
