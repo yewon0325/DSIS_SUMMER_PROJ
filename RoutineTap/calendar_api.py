@@ -1,43 +1,64 @@
 from flask import Blueprint, request, jsonify
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 calendar_bp = Blueprint('calendar', __name__, url_prefix='/api/calendar')
 
-@calendar_bp.route('', methods=['GET'])
-def get_calendar_view():
+@calendar_bp.route('/weekly-summary', methods=['GET'])
+def get_weekly_summary():
     db = calendar_bp.db
     user_id = request.args.get('user_id')
-    month = request.args.get('month')  # 형식: "2025-07"
+    if not user_id:
+        return jsonify({"error": "user_id는 필수입니다."}), 400
 
-    if not user_id or not month:
-        return jsonify({'error': 'user_id와 month는 필수입니다. (예: 2025-07)'}), 400
+    # 이번 주 월요일 계산
+    now = datetime.now(timezone.utc)
+    week_start = now - timedelta(days=now.weekday())
+    week_end = week_start + timedelta(days=6)
+    week_start_str = week_start.date().isoformat()
+    week_end_str = week_end.date().isoformat()
 
-    try:
-        start_date = datetime.strptime(month + "-01", "%Y-%m-%d").replace(tzinfo=timezone.utc)
-    except ValueError:
-        return jsonify({'error': 'month 형식이 잘못되었습니다. 예: 2025-07'}), 400
+    # 루틴 가져오기
+    routines_ref = db.collection("weekly_routines") \
+        .where("user_id", "==", user_id) \
+        .where("week_start", "==", week_start_str) \
+        .limit(1)
 
-    # 다음 달 1일 계산
-    if start_date.month == 12:
-        end_date = datetime(start_date.year + 1, 1, 1, tzinfo=timezone.utc)
-    else:
-        end_date = datetime(start_date.year, start_date.month + 1, 1, tzinfo=timezone.utc)
+    docs = list(routines_ref.stream())
+    if not docs:
+        return jsonify({"error": "이번 주 루틴이 존재하지 않습니다."}), 404
 
-    # Firestore 쿼리 (user_id만 필터)
-    query = db.collection('certifications') \
-            .where('user_id', '==', user_id)
+    data = docs[0].to_dict()
+    missions = data.get("missions", [])
 
-    all_docs = query.stream()
-    result = {}
+    completed_list = []
+    remaining_routines = []
 
-    for doc in all_docs:
-        data = doc.to_dict()
-        verified_at = data.get("date")
+    for m in missions:
+        if m.get("completed"):
+            c = m.get("certification", {})
+            completed_list.append({
+                "routine_id": m.get("mission_id"),
+                "title": m.get("title"),
+                "content": c.get("content"),
+                "date": c.get("date"),
+                "image_url": c.get("image_url")
+            })
+        else:
+            remaining_routines.append({
+                "routine_id": m.get("mission_id"),
+                "title": m.get("title")
+            })
 
-        if not verified_at or verified_at < start_date or verified_at >= end_date:
-            continue
+    total = len(missions)
+    completed = len(completed_list)
+    completion_rate = round(completed / total, 2) if total > 0 else 0
 
-        date_str = verified_at.date().isoformat()
-        result[date_str] = result.get(date_str, 0) + 1
-
-    return jsonify(result), 200
+    return jsonify({
+        "week_start": week_start_str,
+        "week_end": week_end_str,
+        "total_routines": total,
+        "completed_routines": completed,
+        "completion_rate": completion_rate,
+        "completed_list": completed_list,
+        "remaining_routines": remaining_routines
+    }), 200
